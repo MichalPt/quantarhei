@@ -550,6 +550,11 @@ class AggregateBase(UnitsManaged, Saveable):
                 # this simulates bath correlation function
                 #print("0->1 :", self.Wd[Nf, Nf]**2)
                 return self.Wd[Nf, Nf]**2
+
+            elif (self.which_band[eli] == 1) and (self.which_band[elf] == 0):
+                # this simulates bath correlation function
+                #print("0->1 :", self.Wd[Nf, Nf]**2)
+                return self.Wd[Ni, Ni]**2
             
             # 1 exciton -> 2 exciton transitions
             elif (self.which_band[eli] == 1) and (self.which_band[elf] == 2):
@@ -558,6 +563,14 @@ class AggregateBase(UnitsManaged, Saveable):
                         - 2.0*(self.Wd[Nf, Ni]**2))
                 #print("1->2 (", eli, elf,") :", ret, self.Wd[Nf, Ni]**2)
                 return ret
+
+            elif (self.which_band[eli] == 2) and (self.which_band[elf] == 1):
+                # this simulates the term  g_ff + g_ee - 2Re g_fe
+                ret =  (self.Wd[Ni, Ni]**2 + self.Wd[Nf, Nf]**2
+                        - 2.0*(self.Wd[Nf, Ni]**2))
+                #print("1->2 (", eli, elf,") :", ret, self.Wd[Nf, Ni]**2)
+                return ret
+
             
             else:
                 print("This should not be used")
@@ -607,12 +620,20 @@ class AggregateBase(UnitsManaged, Saveable):
             if (self.which_band[eli] == 0) and (self.which_band[elf] == 1):
                 return self.Dr[Nf, Nf]**2
             
+            elif (self.which_band[eli] == 1) and (self.which_band[elf] == 0):
+                return self.Dr[Ni, Ni]**2
+            
             # 1 exciton -> 2 exciton band transitions
             elif (self.which_band[eli] == 1) and (self.which_band[elf] == 2):
                 # this simulates the term  g_ff + g_ee - 2Re g_fe
                 return (self.Dr[Ni, Ni]**2 + self.Dr[Nf, Nf]
                         - 2.0*self.Dr[Nf, Ni])
-                
+ 
+            elif (self.which_band[eli] == 2) and (self.which_band[elf] == 1):
+                # this simulates the term  g_ff + g_ee - 2Re g_fe
+                return (self.Dr[Ni, Ni]**2 + self.Dr[Nf, Nf]
+                        - 2.0*self.Dr[Nf, Ni])
+               
             else:
                 return -1.0
 
@@ -1352,12 +1373,18 @@ class AggregateBase(UnitsManaged, Saveable):
                                            Nvib=Nvib, save_indices=True, 
                                            vibenergy_cutoff=vibenergy_cutoff)
         
-        #print(self.which_band, self.Ntot, len(self.which_band))
-            
-        # Set up Hamiltonian and Transition dipole moment matrices
+        self.all_states = []
+        
         for a, s1 in self.allstates(mult=self.mult, 
                                     vibgen_approx=vibgen_approx, Nvib=Nvib,
-                                    vibenergy_cutoff=vibenergy_cutoff):
+                                    vibenergy_cutoff=vibenergy_cutoff): 
+            self.all_states.append((a, s1))
+
+            
+        # Set up Hamiltonian and Transition dipole moment matrices
+        for a, s1 in self.all_states: #self.allstates(mult=self.mult, 
+                     #               vibgen_approx=vibgen_approx, Nvib=Nvib,
+                     #               vibenergy_cutoff=vibenergy_cutoff):
             
             if a == 0:
                 s0 = s1
@@ -1389,9 +1416,9 @@ class AggregateBase(UnitsManaged, Saveable):
                     sig_position += 1    
 
                 
-            for b, s2 in self.allstates(mult=self.mult, 
-                                    vibgen_approx=vibgen_approx, Nvib=Nvib,
-                                    vibenergy_cutoff=vibenergy_cutoff): 
+            for b, s2 in self.all_states: #self.allstates(mult=self.mult, 
+                                    #vibgen_approx=vibgen_approx, Nvib=Nvib,
+                                    #vibenergy_cutoff=vibenergy_cutoff): 
             
                 DD[a,b,:] = numpy.real(self.transition_dipole(s1, s2))                
                 FC[a,b] = numpy.real(self.fc_factor(s1, s2))
@@ -2201,30 +2228,29 @@ class AggregateBase(UnitsManaged, Saveable):
             N2b = self.Nb[0]+self.Nb[1]+self.Nb[2]
             
             # all states (and 2-ex band selected)
-            for kk1 in range(self.Nel):
-                el1 = self.elinds[kk1]
+            for el1 in range(self.Nel):
                 if self.which_band[el1] == 2:
                     # all states corresponding to electronic two-exc. state kk
-                    for aa1 in self.vibindices[kk1]:
+                    for aa1 in self.vibindices[el1]:
                         
                         # all states and (1-ex band selected)
-                        for kk2 in range(self.Nel):
-                            el2 = self.elinds[kk2]
+                        for el2 in range(self.Nel):
                             if self.which_band[el2] == 1:
-                                for aa2 in self.vibindices[kk2]:
+                                for aa2 in self.vibindices[el2]:
                                     
                                     # all states and (2-ex band selected)
-                                    for kk3 in range(self.Nel):
-                                        el3 = self.elinds[kk3]
+                                    for el3 in range(self.Nel):
                                         if self.which_band[el3] == 2:
-                                            for aa3 in self.vibindices[kk3]:
+                                            for aa3 in self.vibindices[el3]:
+                                                
                                                 st_k = self.twoex_indx[aa3,0]
                                                 st_l = self.twoex_indx[aa3,1]
+
                                                 kappa[aa2, aa1] += (
                                                      (delta[aa2, st_k] 
                                                     + delta[aa2, st_l])*
                                                      (SS[aa3, aa1]**2))
-                                                     
+            
             #
             # Cross terms
             #
@@ -2243,7 +2269,6 @@ class AggregateBase(UnitsManaged, Saveable):
                                  
             self.Wd[N1b:N2b,0:N1b] = numpy.sqrt(self.Wd[N1b:N2b,0:N1b])
             self.Wd[0:N1b,N1b:N2b] = numpy.transpose(self.Wd[N1b:N2b,0:N1b])
-            #print(self.Wd[N1b:N2b,0:N1b])
             
             #
             # Transform line shapes for 1->2 transitions
@@ -2272,11 +2297,9 @@ class AggregateBase(UnitsManaged, Saveable):
         Wd_a = numpy.sqrt(Wd_a)
         Dr_a = numpy.sqrt(Dr_a)
         
-        
         self.Wd[0:N1b,0:N1b] = numpy.diag(Wd_a)
         self.Dr[0:N1b,0:N1b] = numpy.diag(Dr_a)
-                                       
-        
+                                           
         #
         #
         # Coefficients xi_{ai} to transform pure dephasing of electronic coherence
@@ -2302,7 +2325,7 @@ class AggregateBase(UnitsManaged, Saveable):
         for a in range(Ntot):
             for b in range(Ntot):
                 dd2[a,b] = numpy.dot(self.DD[a,b,:],self.DD[a,b,:])
-        #print(dd2)
+
         self.D2 = dd2
         self.D2_max = numpy.max(dd2)
         
