@@ -176,17 +176,18 @@ class DensityMatrixEvolution(MatrixData, BasisManaged, Saveable):
             
         N = self.data.shape[1]
 
+        # Sorting molecules by colours:
         cols = []
         for mol in legend:
             for key in list(colours.keys()):
                 if mol.find(colours[key]) != -1:
                     cols.append(key)
 
+        print("Molecules: ", legend)
+        print("Colours: ", cols)
+
+        # Creating list of different colour shades from selected colour map for each molecule:
         paintings = [0] * len(cols)
-        print("Molekuly: ", legend)
-        print("Barvy: ", cols)
-
-
         for col in list(colours.keys()):
             numocc = cols.count(col)
             gradient = numpy.linspace(0.2, 1, 2 * numocc + 1)
@@ -224,7 +225,7 @@ class DensityMatrixEvolution(MatrixData, BasisManaged, Saveable):
                         if kk > 6:
                             kk = kk - 7
                         plt.plot(self.TimeAxis.data,numpy.real(
-                                    self.data[:,ii,jj]),howi[kk]) #how)
+                                    self.data[:,ii,jj]),paintings[ii]) #how)
                 
         ii = 0
         ss = numpy.zeros((self.TimeAxis.length),dtype=numpy.complex64)
