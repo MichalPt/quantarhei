@@ -2,6 +2,8 @@
 
 import numpy
 import matplotlib.pylab as plt
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+from matplotlib import cm
 
 from ...core.matrixdata import MatrixData
 #from ...core.time import TimeAxis
@@ -159,7 +161,7 @@ class DensityMatrixEvolution(MatrixData, BasisManaged, Saveable):
     
     def plot(self, populations=True, popselection="All", trace=False,
                    coherences=True, cohselection="All", how='-',
-                   axis=None, show=True):
+                   axis=None, show=True, legend=None):
         """
             Plots selected data.
             Return figure so that it can be manipulated
@@ -170,17 +172,24 @@ class DensityMatrixEvolution(MatrixData, BasisManaged, Saveable):
         if how == '-':
             howi = ['-k','-r','-b','-g','-m','-y','-c']
         if how == '--':
-            howi = ['--k','--r','--b','--g','--m','--y','--c',]
+            howi = ['--k','--r','--b','--g','--m','--y','--c']
             
         N = self.data.shape[1]
 
+        #viridis = cm.get_cmap('hsv')
+        #print("HSV: ",viridis(numpy.linspace(0, 1, N))[N-1])
+
+
         if populations:
-            for ii in range(1,N):
+            for ii in range(0, N):
                 kk = ii
                 while kk > 6:
                     kk = kk - 7
                 plt.plot(self.TimeAxis.data,
+                         #numpy.real(self.data[:, ii, ii]), viridis(numpy.linspace(0, 1, N))[ii])
                          numpy.real(self.data[:,ii,ii]),howi[kk])
+                if legend != None:
+                    plt.legend(legend)
                 
         if trace:
             trc = numpy.zeros(self.TimeAxis.length, dtype=numpy.float64)
