@@ -161,7 +161,7 @@ class DensityMatrixEvolution(MatrixData, BasisManaged, Saveable):
     
     def plot(self, populations=True, popselection="All", trace=False,
                    coherences=True, cohselection="All", how='-',
-                   axis=None, show=True, legend=None):
+                   axis=None, show=True, legend=None, colours=None):
         """
             Plots selected data.
             Return figure so that it can be manipulated
@@ -169,25 +169,41 @@ class DensityMatrixEvolution(MatrixData, BasisManaged, Saveable):
         population_sum = False
         #populations=False
 
-        if how == '-':
-            howi = ['-k','-r','-b','-g','-m','-y','-c']
-        if how == '--':
-            howi = ['--k','--r','--b','--g','--m','--y','--c']
+        #if how == '-':
+        #    howi = ['-k','-r','-b','-g','-m','-y','-c']
+        #if how == '--':
+        #    howi = ['--k','--r','--b','--g','--m','--y','--c']
             
         N = self.data.shape[1]
 
-        #viridis = cm.get_cmap('hsv')
-        #print("HSV: ",viridis(numpy.linspace(0, 1, N))[N-1])
+        cols = []
+        for mol in legend:
+            for key in list(colours.keys()):
+                if mol.find(colours[key]) != -1:
+                    cols.append(key)
 
+        paintings = [0] * len(cols)
+        print("Molekuly: ", legend)
+        print("Barvy: ", cols)
+
+
+        for col in list(colours.keys()):
+            numocc = cols.count(col)
+            gradient = numpy.linspace(0.2, 1, 2 * numocc + 1)
+            i = 0
+            for n in range(0, numocc):
+                i = cols.index(col, i)
+                paintings[i] = plt.get_cmap(col)(1-gradient[n])
+                i = i+1
 
         if populations:
-            for ii in range(0, N):
-                kk = ii
-                while kk > 6:
-                    kk = kk - 7
+            for ii in range(1, N):
+                #kk = ii
+                #while kk > 6:
+                #    kk = kk - 7
                 plt.plot(self.TimeAxis.data,
-                         #numpy.real(self.data[:, ii, ii]), viridis(numpy.linspace(0, 1, N))[ii])
-                         numpy.real(self.data[:,ii,ii]),howi[kk])
+                         numpy.real(self.data[:, ii, ii]), color=paintings[ii-1])
+                         #numpy.real(self.data[:,ii,ii]),howi[kk])
                 if legend != None:
                     plt.legend(legend)
                 
