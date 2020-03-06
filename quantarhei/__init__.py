@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+    # -*- coding: utf-8 -*-
 """
     Quantarhei User Level Classes and Objects
     =========================================
@@ -244,6 +244,9 @@ from .core.parallel import start_parallel_region
 from .core.parallel import close_parallel_region
 from .core.parallel import parallel_function
 from .core.parallel import block_distributed_range
+from .core.parallel import block_distributed_list
+from .core.parallel import block_distributed_array
+from .core.parallel import collect_block_distributed_data
 
 ###############################################################################
 #                            SPECTROSCOPY
@@ -308,6 +311,7 @@ from .qm import DensityMatrix
 from .qm import ReducedDensityMatrix
 from .qm import BasisReferenceOperator
 from .qm import Hamiltonian
+from .qm import Liouvillian
 from .qm import TransitionDipoleMoment
 from .qm import UnityOperator
 

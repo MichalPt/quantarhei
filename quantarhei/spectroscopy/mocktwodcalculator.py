@@ -239,7 +239,8 @@ class MockTwoDResponseCalculator(TwoDResponseCalculator):
                     pws = anl.select_omega2(interval, replace=False)
                     
                 if rule[0] == "order":
-                    pass
+                    anl.pathways = pws
+                    pws = anl.order_by_amplitude(replace=Falses)
                     
                 if rule[0] == "number":
                     N = rule[1]
@@ -332,6 +333,7 @@ class MockTwoDResponseCalculator(TwoDResponseCalculator):
 
             reph2D = numpy.zeros((N1, N3), dtype=COMPLEX)
             
+            
             if shape == "Gaussian":
                 oo3 = self.oa3.data[:]
                 
@@ -347,6 +349,7 @@ class MockTwoDResponseCalculator(TwoDResponseCalculator):
             
                 else:
 
+                    
                     oo1 = -self.oa1.data[:]
 
                     reph2D = pref*gaussian2D(oo1, cen1, widthx,
