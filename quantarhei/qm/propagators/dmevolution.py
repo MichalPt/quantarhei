@@ -2,9 +2,8 @@
 
 import numpy
 import matplotlib.pylab as plt
-from matplotlib.colors import ListedColormap, LinearSegmentedColormap
-from matplotlib import cm
 from operator import itemgetter
+from .plot_colour_and_legend_manager import ColLegManager
 
 from ...core.matrixdata import MatrixData
 #from ...core.time import TimeAxis
@@ -170,59 +169,11 @@ class DensityMatrixEvolution(MatrixData, BasisManaged, Saveable):
         population_sum = False
         #populations=False
 
-        # If no dict of colours_map or legend has been entered
-        if not colours:
-            colours = None
-        if not legend:
-            legend = None
-
         N = self.data.shape[1]
 
-        # Constructing list of indexes for alphabetically ordered molecule names in 'legend'
-        if legend != None:
-            index_list = list(range(0, N-1))
-            merged_list = []
-            ## Creating 2D list of ['position index','molecule name']
-            for entry in index_list:
-                merged_list.append([index_list[entry], legend[entry]])
-            print("ML: ", merged_list)
-            ordered = sorted(merged_list, key=itemgetter(1))
-            ## List of position indexes according to alphabetical order
-            order = []
-            for index in index_list:
-                order.append(ordered[index][0])
-            print("Order: ", order)
-
-        cols = []
-        if colours != None:
-            # Sorting molecules by colours:
-            for mol in legend:
-                for key in list(colours.keys()):
-                    if mol.find(colours[key]) != -1:
-                        cols.append(key)
-
-            print("Molecules: ", legend)
-            print("Colours: ", cols)
-
-            # Creating list of different colour shades from selected colour map for each molecule:
-            paintings = [0] * len(cols)
-            for col in list(colours.keys()):
-                numocc = cols.count(col)
-                gradient = numpy.linspace(0.2, 1, 2 * numocc + 1)
-                i = 0
-                for n in range(0, numocc):
-                    i = cols.index(col, i)
-                    paintings[i] = plt.get_cmap(col)(1-gradient[n])
-                    i = i+1
-
-        # Default setting - gradient of colours of preset colour map
-        if colours == None:
-            paintings = [0]*N
-            gradient = numpy.linspace(0.1, 1, N)
-            j=0
-            for o in order:
-                paintings[o] = plt.get_cmap('inferno')(1-gradient[j])
-                j = j+1
+        ColLeg = ColLegManager(colours=colours, legend=legend, N=N)
+        order = ColLeg[0]
+        paintings = ColLeg[1]
 
         if populations:
             for ii in order:
