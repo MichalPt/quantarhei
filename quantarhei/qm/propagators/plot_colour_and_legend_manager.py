@@ -22,7 +22,6 @@ def ColLegManager(colours=None, legend=None, N=None):
         legend = None
 
 
-
     # Constructing list of indexes for alphabetically ordered molecule names in 'legend'
     if legend != None:
         index_list = list(range(0, N - 1))
@@ -64,5 +63,14 @@ def ColLegManager(colours=None, legend=None, N=None):
                 loc = order[i+q]
                 paintings[loc] = plt.get_cmap(clr)(1 - gradient[i])
             q = q + numocc
+
+    # Default setting - gradient of colours of preset colour map
+    if colours == None:
+         paintings = [0] * N
+         gradient = numpy.linspace(0.2, 1, N)
+         j = 0
+         for o in order:
+             paintings[o] = plt.get_cmap('inferno_r')(1 - gradient[j])
+             j = j + 1
 
     return [order, paintings]
