@@ -2,7 +2,6 @@
 
 import numpy
 import matplotlib.pylab as plt
-from operator import itemgetter
 from .plot_colour_and_legend_manager import ColLegManager
 
 from ...core.matrixdata import MatrixData
