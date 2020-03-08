@@ -1,7 +1,8 @@
-import numpy
-import matplotlib.pylab as plt
-from operator import itemgetter
 
+import numpy
+from operator import itemgetter
+from collections import Counter
+import matplotlib.pylab as plt
 
 # ColLegManager function inputs are:
 #       >>> colours   <dict> - dict connecting molecule types (eg. Chla --> Chla1, Chla2, ...)
@@ -19,6 +20,8 @@ def ColLegManager(colours=None, legend=None, N=None):
         colours = None
     if not legend:
         legend = None
+
+
 
     # Constructing list of indexes for alphabetically ordered molecule names in 'legend'
     if legend != None:
@@ -48,12 +51,18 @@ def ColLegManager(colours=None, legend=None, N=None):
 
         # Creating list of different colour shades from selected colour map for each molecule:
         paintings = [0] * len(cols)
-        for col in list(colours.keys()):
-            numocc = cols.count(col)
+
+        # Matching different shades from selected colour map for each molecule, the gradient respects the alphabetical
+        # order of the molecules' names (first molecule is always the darkest, the shade gets lighter with each next)
+        q = 0
+        num_of_col = len(Counter(cols).keys())
+        for num in range(0,num_of_col):
+            clr = cols[order[q]]
+            numocc = cols.count(clr)
             gradient = numpy.linspace(0.2, 1, 2 * numocc + 1)
-            i = 0
-            for n in range(0, numocc):
-                i = cols.index(col, i)
-                paintings[i] = plt.get_cmap(col)(1 - gradient[n])
-                i = i + 1
+            for i in range(0,numocc):
+                loc = order[i+q]
+                paintings[loc] = plt.get_cmap(clr)(1 - gradient[i])
+            q = q + numocc
+
     return [order, paintings]
