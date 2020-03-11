@@ -11,7 +11,7 @@ import matplotlib.pylab as plt
 #       >>> N         <int>  - dimension of density matrix (usually one element longer than legend length
 #
 # ColLegManager unction returns list of:
-#  [0]  >>> order     <list> - list of indexes of molecules names in 'legend' (input) in alphabetical order
+#  [0]  >>> order     <list> - list of molecule names' indexes in 'legend' (input) in alphabetical order
 #  [1]  >>> paintings <list> - list of RGBA vectors for each molecule name, order of values corresponds to the legend
 
 def ColLegManager(colours=None, legend=None, N=None):
