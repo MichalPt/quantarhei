@@ -1,12 +1,12 @@
-
 import numpy
 from operator import itemgetter
 from collections import Counter
 import matplotlib.pylab as plt
 
+
 # ColLegManager function inputs are:
-#       >>> colours   <dict> - dict connecting molecule types (eg. Chla --> Chla1, Chla2, ...)
-#                              with color maps of user's choice
+#       >>> colours   <dict> - dict connecting molecule types (e.g. Chla --> Chla1, Chla2, ...)
+#                              with color maps of user's choice (e.g. 'Reds', 'Blues', ...)
 #       >>> legend    <list> - list of molecules names as they are present in density matrix (in correct order)
 #       >>> N         <int>  - dimension of density matrix (usually one element longer than legend length
 #
@@ -15,12 +15,13 @@ import matplotlib.pylab as plt
 #  [1]  >>> paintings <list> - list of RGBA vectors for each molecule name, order of values corresponds to the legend
 
 def ColLegManager(colours=None, legend=None, N=None):
-    # If no dict of colours_map or legend has been entered
+    # If no dict of colours_map or legend or N has been entered
     if not colours:
         colours = None
     if not legend:
         legend = None
-
+    if not N:
+        N = len(legend) + 1
 
     # Constructing list of indexes for alphabetically ordered molecule names in 'legend'
     if legend != None:
@@ -55,22 +56,22 @@ def ColLegManager(colours=None, legend=None, N=None):
         # order of the molecules' names (first molecule is always the darkest, the shade gets lighter with each next)
         q = 0
         num_of_col = len(Counter(cols).keys())
-        for num in range(0,num_of_col):
+        for num in range(0, num_of_col):
             clr = cols[order[q]]
             numocc = cols.count(clr)
             gradient = numpy.linspace(0.2, 1, 2 * numocc + 1)
-            for i in range(0,numocc):
-                loc = order[i+q]
+            for i in range(0, numocc):
+                loc = order[i + q]
                 paintings[loc] = plt.get_cmap(clr)(1 - gradient[i])
             q = q + numocc
 
     # Default setting - gradient of colours of preset colour map
     if colours == None:
-         paintings = [0] * N
-         gradient = numpy.linspace(0.2, 1, N)
-         j = 0
-         for o in order:
-             paintings[o] = plt.get_cmap('inferno_r')(1 - gradient[j])
-             j = j + 1
+        paintings = [0] * N
+        gradient = numpy.linspace(0.2, 1, N)
+        j = 0
+        for o in order:
+            paintings[o] = plt.get_cmap('inferno_r')(1 - gradient[j])
+            j = j + 1
 
     return [order, paintings]
