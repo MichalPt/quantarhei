@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 from operator import itemgetter
 from collections import Counter
 import matplotlib.pylab as plt
@@ -23,20 +23,10 @@ def ColLegManager(colours=None, legend=None, N=None):
     if not N:
         N = len(legend) + 1
 
-    # Constructing list of indexes for alphabetically ordered molecule names in 'legend'
+    #Constructing list of indexes for alphabetically ordered molecule names in 'legend'
     if legend != None:
-        index_list = list(range(0, N - 1))
-        merged_list = []
-        ## Creating 2D list of ['position index','molecule name']
-        for entry in index_list:
-            merged_list.append([index_list[entry], legend[entry]])
-        print("Merged_list:        ", merged_list)
-        ordered = sorted(merged_list, key=itemgetter(1))
-        ## List of position indexes according to alphabetical order
-        order = []
-        for index in index_list:
-            order.append(ordered[index][0])
-        print("Order_of_mol_names: ", order)
+        order = np.argsort(legend)
+        print("Order_of_mol_names: ", list(order))
 
     cols = []
     if colours != None:
@@ -59,16 +49,17 @@ def ColLegManager(colours=None, legend=None, N=None):
         for num in range(0, num_of_col):
             clr = cols[order[q]]
             numocc = cols.count(clr)
-            gradient = numpy.linspace(0.2, 1, 2 * numocc + 1)
+            gradient = np.linspace(0.2, 1, 2 * numocc + 1)
             for i in range(0, numocc):
                 loc = order[i + q]
                 paintings[loc] = plt.get_cmap(clr)(1 - gradient[i])
             q = q + numocc
 
+
     # Default setting - gradient of colours of preset colour map
     if colours == None:
         paintings = [0] * N
-        gradient = numpy.linspace(0.2, 1, N)
+        gradient = np.linspace(0.2, 1, N)
         j = 0
         for o in order:
             paintings[o] = plt.get_cmap('inferno_r')(1 - gradient[j])
