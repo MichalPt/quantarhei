@@ -17,7 +17,8 @@ from ..core.managers import eigenbasis_of
 
 import quantarhei as qr
 
-class AggregateSpectroscopy(AggregateBase):
+#class AggregateSpectroscopy(AggregateBase):
+class AggeregateSpectroscopy(AggregateCT):
     """ Class comprising the aggregate methods for support of spectroscopic simulations
 
 

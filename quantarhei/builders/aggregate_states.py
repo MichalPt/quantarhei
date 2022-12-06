@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy
+import numpy as np
 
 from ..utils.types import Float
 from ..utils.types import Integer
@@ -458,3 +459,52 @@ class Coherence:
         """
         
         return dict(electronic=0.0, vibrational=0.0, mixed=0.0)
+
+
+class ChargeTransferState(UnitsManaged):
+    def __init__(self, aggregate, state1, state2, index=None):
+        """ Electron transfer is occurring from state1 to state2
+        """
+        
+        nmono = len(aggregate.monomers)
+        
+        ### state 1 (donor):
+        if type(state1) == str:
+            mol1_id = aggregate.get_Molecule_index(state1)
+            state1_elsig = np.zeros(nmono)
+            Nsig1 = nmono
+            state1_elsig[mol1_id] = -1
+
+        elif (type(state1) in [list, tuple]) and -1 in state1:
+            state1_elsig = state1
+            Nsig1 = len(state1)
+            mol1_id = int([i for i, x in enumerate(state1) if x == -1]) +1
+
+        ### state 2 (acceptor):
+        if type(state2) == str:
+            mol2_id = aggregate.get_Molecule_index(state2)
+            state2_elsig = np.zeros(nmono)
+            Nsig2 = nmono
+            state2_elsig[mol2_id] = 1
+
+        elif type(state2) in [list, tuple, np.ndarray]:
+            state2_elsig = state2
+            Nsig2 = len(state2)
+            mol2_id = int([i for i, x in enumerate(state2) if x == -1]) +1
+        
+        
+        if Nsig1 == nmono and Nsig2 == nmono:
+            self.nmono = nmono
+        else:
+            raise Exception("Incompatible length of state1 or state2 elsignatures.")
+        
+        self.elsignature = state1_elsig + state2_elsig
+        self.ctsignature = [mol1_id, mol2_id]
+        self.aggregate = aggregate
+        
+        # if index is specified, use it, otherwise try to search for it
+        if index is not None:
+            self.index = index
+        else:
+            self.index = self.aggregate.elsigs.index(self.elsignature) 
+        

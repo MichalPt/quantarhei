@@ -159,7 +159,8 @@ class DensityMatrixEvolution(MatrixData, BasisManaged, Saveable):
     
     def plot(self, populations=True, popselection="All", trace=False,
                    coherences=True, cohselection="All", how='-',
-                   axis=None, show=True, legend=False, start=1, shiftcolor=0):
+                   axis=None, show=True, legend=False, start=1, shiftcolor=0,
+                   legend_position="", aggregate=None):
         """
             Plots selected data.
             Return figure so that it can be manipulated
@@ -185,7 +186,11 @@ class DensityMatrixEvolution(MatrixData, BasisManaged, Saveable):
                     kk = kk - 7
                 plt.plot(self.TimeAxis.data,
                          numpy.real(self.data[:,ii,ii]),howi[kk])
-                leg.append(str(ii))
+                if aggregate is not None:
+                    label = aggregate.monomers[ii-1].name
+                else:
+                    label = str(ii)
+                leg.append(label)
                 
         
         if trace:
