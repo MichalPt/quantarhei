@@ -719,7 +719,9 @@ class OpenSystem():
                 with eigenbasis_of(ham):
                     relaxT = TDRedfieldRelaxationTensor(ham, sbi,
                                         cutoff_time=relaxation_cutoff_time,
-                                        as_operators=as_operators)
+                                        as_operators=as_operators,
+                                        secular_relaxation=secular_relaxation
+                                        )
                     if secular_relaxation:
                         relaxT.secularize()
                 ham.unprotect_basis()

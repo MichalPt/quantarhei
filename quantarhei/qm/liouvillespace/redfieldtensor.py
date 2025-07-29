@@ -78,7 +78,8 @@ class RedfieldRelaxationTensor(RelaxationTensor):
     Ld = BasisManagedComplexArray("Ld")    
 
     def __init__(self, ham, sbi, initialize=True,
-                 cutoff_time=None, as_operators=False,
+                 cutoff_time=None, as_operators=False, 
+                 secular_relaxation=False,
                  name=""):
                      
         self._initialize_basis()
@@ -101,6 +102,7 @@ class RedfieldRelaxationTensor(RelaxationTensor):
         self.SystemBathInteraction = sbi
         
         self.dim = self.Hamiltonian.dim
+        self.secular_relaxation = secular_relaxation
         self.name = name
         
         self._data_initialized = False

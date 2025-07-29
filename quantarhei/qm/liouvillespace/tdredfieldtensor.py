@@ -341,7 +341,9 @@ class TDRedfieldRelaxationTensor(RedfieldRelaxationTensor, TimeDependent):
 
         """
         if self.as_operators:
-            raise Exception("Cannot be secularized in an opeator form")
+            # raise Exception("Cannot be secularized in an opeator form")
+            assert self.secular_relaxation == True
+            print("Secular propagator for RT in operator form will be used.")
             
         else:
             N = self.data.shape[1]

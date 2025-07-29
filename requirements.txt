@@ -5,4 +5,5 @@ terminaltables
 dill
 pyyaml
 sympy
+numba
 

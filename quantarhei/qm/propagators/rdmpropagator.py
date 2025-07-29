@@ -33,6 +33,7 @@ import quantarhei as qr
 from ... import COMPLEX
 
 import matplotlib.pyplot as plt
+from numba import jit
 
     
 _show_debug = False
@@ -123,9 +124,11 @@ class ReducedDensityMatrixPropagator(MatrixData, Saveable):
                 self.RelaxationTensor = RTensor
                 self.has_RTensor = True
                 self.has_relaxation = True
+                self.secular_relaxation = RTensor.secular_relaxation
             elif RTensor is None:
                 self.has_RTensor = False
                 self.has_relaxation = False
+                self.secular_relaxation = False
             else:
                 raise Exception("RelaxationTensor or None expected here.")
             
@@ -1015,7 +1018,6 @@ class ReducedDensityMatrixPropagator(MatrixData, Saveable):
             
         return pr     
 
-
     def __propagate_short_exp_with_TDrel_operators(self, rhoi, L=4):
         """
             Short exp integration with time-dependent relaxation tensor
@@ -1028,10 +1030,9 @@ class ReducedDensityMatrixPropagator(MatrixData, Saveable):
         debug("(5)")
         pr = ReducedDensityMatrixEvolution(self.TimeAxis, rhoi)
         
-        rho1 = rhoi.data
-        rho2 = rhoi.data
-        
-        #HH = self.Hamiltonian.data  
+        # rho1 = rhoi.data
+        # rho2 = rhoi.data
+        # HH = self.Hamiltonian.data  
         #
         # RWA is applied here
         #
@@ -1047,54 +1048,270 @@ class ReducedDensityMatrixPropagator(MatrixData, Saveable):
             self.TimeAxis.nearest(self.RelaxationTensor.cutoff_time)
         else:
             cutoff_indx = self.TimeAxis.length
+        
+        # @jit(nopython=True, fastmath=True)
+        def _propagate_nonsecular(HH=HH, 
+                                  Km=self.RelaxationTensor.Km, 
+                                  Lm=self.RelaxationTensor.Lm, 
+                                  Ld=self.RelaxationTensor.Ld, 
+                                  rho=rhoi.data, 
+                                  Nt=self.TimeAxis.length, 
+                                  Nref=self.Nref,
+                                  dt=self.TimeAxis.step, 
+                                  L=L,
+                                  outputdata=pr.data
+                                  ):
+            """Nonsecular propagator for tensor in operator form"""
+            
+            print("INFO: NEW implementation of nonsecular propagator for tensor in operator form")
 
-        Km = self.RelaxationTensor.Km
-        Kd = numpy.zeros(Km.shape, dtype=numpy.float64)
-        Nm = Km.shape[0]
-        for m in range(Nm):
-            Kd[m, :, :] = numpy.transpose(Km[m, :, :])
+            rho1 = rho.copy()
+            rho2 = rho.copy()
+
+            Km = numpy.asarray(Km, dtype=numpy.complex128)
+
+            Kd = numpy.transpose(Km, (0,2,1))
+            Nm = Km.shape[0]
+            
+            Lmm = Lm
+            Ldd = Ld
+                            
+            indx = 1
+            indxR = 1
+            for ii in range(1, Nt): 
+
+                Lm = Lmm[:,:,:,indxR]
+                Ld = Ldd[:,:,:,indxR]
+        
+                for jj in range(0, Nref):
+                    
+                    for ll in range(1, L+1):
                         
-        indx = 1
-        indxR = 1
-
-        for ii in range(1, self.Nt): 
-
-            Lm = self.RelaxationTensor.Lm[:,:,:,indxR]
-            Ld = self.RelaxationTensor.Ld[:,:,:,indxR]
-       
-            for jj in range(0, self.Nref):
-                
-                for ll in range(1, L+1):
-                    
-                    rhoY =  - _COM(HH, ll, self.dt,rho1) 
-                    
-                    #(1j*self.dt/ll)*(numpy.dot(HH,rho1) 
-                    #                         - numpy.dot(rho1,HH))
-                    
-                    _OTI(rhoY, Km, Kd, Lm, Ld, ll, self.dt, rho1)
-                    
-                    # for mm in range(Nm):
+                        rhoY = - (1j*dt/ll)*commutator(HH, rho1)
                         
-                    #     rhoY += (self.dt/ll)*(
-                    #     numpy.dot(Km[mm,:,:],numpy.dot(rho1, Ld[mm,:,:]))
-                    #     +numpy.dot(Lm[mm,:,:],numpy.dot(rho1, Kd[mm,:,:]))
-                    #     -numpy.dot(numpy.dot(Kd[mm,:,:],Lm[mm,:,:]), rho1)
-                    #     -numpy.dot(rho1, numpy.dot(Ld[mm,:,:],Km[mm,:,:]))
-                    #     )
-                             
-                    rho1 = rhoY # + rhoX
-                    
-                    rho2 = rho2 + rho1
-                rho1 = rho2    
+                        rhoX = numpy.zeros(rho1.shape, dtype=numpy.complex128)
+                        
+                        for mm in range(Nm):
+                            rLd = numpy.dot(rho1, Ld[:,:,mm])
+                            Lmr = numpy.dot(Lm[:,:,mm], rho1)
+
+                            com1 = commutator(Km[mm], rLd)
+                            com2 = commutator(Kd[mm], Lmr)
+                            rhoX += (dt/ll) * (com1 - com2)
+                                
+                        rho1 = rhoY + rhoX
+                        rho2 = rho2 + rho1
+                    rho1 = rho2    
                 
-            pr.data[indx,:,:] = rho2 
-            indx += 1             
-            if indxR < cutoff_indx-1:                      
-                indxR += 1             
+                outputdata[indx,:,:] = rho2 
+                indx += 1             
+                if indxR < cutoff_indx-1:                      
+                    indxR += 1 
+
+        @jit(nopython=True, fastmath=True)
+        def _propagate_nonsecular_optimized(HH=HH, 
+                                            Km=self.RelaxationTensor.Km, 
+                                            Lm=self.RelaxationTensor.Lm, 
+                                            Ld=self.RelaxationTensor.Ld, 
+                                            rho=rhoi.data, 
+                                            Nt=self.TimeAxis.length, 
+                                            Nref=self.Nref,
+                                            dt=self.TimeAxis.step, 
+                                            L=L,
+                                            outputdata=pr.data
+                                            ):
+            """Optimized version of the nonsecular propagator for tensor in operator form"""
+            print("INFO: NEW implementation of nonsecular propagator for tensor in operator form (optimized)")
+
+            HH = numpy.ascontiguousarray(HH)
+            Km = numpy.ascontiguousarray(Km.astype(numpy.complex128))
+            Kd = numpy.transpose(Km, (0,2,1))
+            
+            Nm = Km.shape[0]
+            rho_shape = rho.shape
+            rho1 = rho.copy()
+            rho2 = rho.copy()
+            
+            # Pre-allocate temporary arrays to avoid repeated allocations
+            rhoY = numpy.zeros(rho_shape, dtype=numpy.complex128)
+            rhoX = numpy.zeros(rho_shape, dtype=numpy.complex128)
+            rLd = numpy.zeros(rho_shape, dtype=numpy.complex128)
+            Lmr = numpy.zeros(rho_shape, dtype=numpy.complex128)
+            com1 = numpy.zeros(rho_shape, dtype=numpy.complex128)
+            com2 = numpy.zeros(rho_shape, dtype=numpy.complex128)
+            
+            indx = 1
+            indxR = 1
+            
+            for ii in range(1, Nt):
+                # Extract time-dependent operators (these will be contiguous slices)
+                Lm_t = numpy.ascontiguousarray(Lm[:,:,:,indxR])
+                Ld_t = numpy.ascontiguousarray(Ld[:,:,:,indxR])
+                
+                for jj in range(Nref):
+                    for ll in range(1, L+1):
+                        # Clear temporary arrays
+                        rhoY.fill(0.0)
+                        rhoX.fill(0.0)
+                        
+                        # Hamiltonian commutator: -i*dt/ll * [H, rho]
+                        dt_factor = -1j * dt / ll
+                        for i in range(rho_shape[0]):
+                            for j in range(rho_shape[1]):
+                                temp = 0.0 + 0.0j
+                                for k in range(rho_shape[1]):
+                                    temp += HH[i,k] * rho1[k,j] - rho1[i,k] * HH[k,j]
+                                rhoY[i,j] = dt_factor * temp
+                        
+                        # Relaxation terms
+                        dt_ll = dt / ll
+                        for mm in range(Nm):
+                            # Compute rho * Ld and Lm * rho once per mm
+                            for i in range(rho_shape[0]):
+                                for j in range(rho_shape[1]):
+                                    rLd[i,j] = 0.0 + 0.0j
+                                    Lmr[i,j] = 0.0 + 0.0j
+                                    for k in range(rho_shape[1]):
+                                        rLd[i,j] += rho1[i,k] * Ld_t[k,j,mm]
+                                        Lmr[i,j] += Lm_t[i,k,mm] * rho1[k,j]
+                            
+                            # Compute commutators [Km, rho*Ld] and [Kd, Lm*rho]
+                            for i in range(rho_shape[0]):
+                                for j in range(rho_shape[1]):
+                                    com1[i,j] = 0.0 + 0.0j
+                                    com2[i,j] = 0.0 + 0.0j
+                                    for k in range(rho_shape[1]):
+                                        com1[i,j] += Km[mm,i,k] * rLd[k,j] - rLd[i,k] * Km[mm,k,j]
+                                        com2[i,j] += Kd[mm,i,k] * Lmr[k,j] - Lmr[i,k] * Kd[mm,k,j]
+                                    
+                                    rhoX[i,j] += dt_ll * (com1[i,j] - com2[i,j])
+                        
+                        # Combine results
+                        for i in range(rho_shape[0]):
+                            for j in range(rho_shape[1]):
+                                rho1[i,j] = rhoY[i,j] + rhoX[i,j]
+                                rho2[i,j] = rho2[i,j] + rho1[i,j]
+                    
+                    # Update rho1 for next iteration
+                    for i in range(rho_shape[0]):
+                        for j in range(rho_shape[1]):
+                            rho1[i,j] = rho2[i,j]
+                
+                # Store result
+                for i in range(rho_shape[0]):
+                    for j in range(rho_shape[1]):
+                        outputdata[indx,i,j] = rho2[i,j]
+                
+                indx += 1
+                if indxR < cutoff_indx - 1:
+                    indxR += 1
+
+        ### (non)SECULAR PROPAGATOR
+        def _propagate_secular(HH=HH, 
+                               Km=self.RelaxationTensor.Km, 
+                               Lm=self.RelaxationTensor.Lm, 
+                               Ld=self.RelaxationTensor.Ld, 
+                               rho=rhoi.data, 
+                               Nt=self.TimeAxis.length, 
+                               dt=self.TimeAxis.step, 
+                               L=L
+                               ):
+
+            print("INFO: NEWEST implementation of (non)secular propagator for tensor in operator form")
+
+            @jit(nopython=True, fastmath=True)
+            def apply_on_rho_nonsecular(K, L, rho):
+                Lh = numpy.conjugate(numpy.transpose(L, (0,2,1)))
+                rho0 = rho
+                Rrho = numpy.zeros_like(rho)
+
+                for n in range(K.shape[0]):
+                    Lrho = numpy.dot(L[n], rho0)
+                    rhoLh = numpy.dot(rho0, Lh[n])
+                
+                    Rrho += commutator(Lrho, K[n]) + commutator(K[n], rhoLh)
+                
+                return Rrho 
+
+            @jit(nopython=True, fastmath=True)
+            def apply_on_rho_secular_optimized(K, L, rho):
+                L = numpy.ascontiguousarray(L)
+                K = numpy.ascontiguousarray(numpy.asarray(K, dtype=numpy.complex128))
+                Lh = numpy.conj(numpy.transpose(L, (0,2,1)))
+                
+                rhot = numpy.zeros_like(rho)
+                N = rho.shape[0]
+                
+                for n in range(K.shape[0]):
+                    KL = numpy.dot(K[n], L[n])
+                    LhK = numpy.dot(Lh[n], K[n])
+                    
+                    for i in range(N):
+                        diag_contrib = -(KL[i, i] + LhK[i, i]) * rho[i, i]
+                        
+                        for j in range(N):
+                            diag_contrib += (L[n, i, j] * K[n, j, i] + K[n, i, j] * Lh[n, j, i]) * rho[j, j]
+                        
+                        rhot[i, i] += diag_contrib
+                    
+                    for i in range(N):
+                        L_ii = L[n, i, i]
+                        K_ii = K[n, i, i]
+                        KL_ii = KL[i, i]
+                        
+                        for j in range(N):
+                            if i != j:
+                                rhot[i, j] += (L_ii * K[n, j, j] + K_ii * Lh[n, j, j] - KL_ii - LhK[j, j]) * rho[i, j]
+                
+                return rhot
+
+            def _propagate(H, K, L, rho, S, iS, Nt=self.TimeAxis.length, dt=self.TimeAxis.step, k=L):
+                
+                if self.secular_relaxation:
+                    apply_KL = apply_on_rho_secular_optimized
+                else:
+                    apply_KL = apply_on_rho_nonsecular
+                
+                rho = numpy.dot(iS, numpy.dot(rho, S))
+                H = numpy.dot(iS, numpy.dot(H, S))
+
+                rho1 = rho.copy()
+                rho2 = rho.copy()
+                out = numpy.zeros((int(Nt)-1, *rho.shape), dtype=numpy.complex128)
+                
+                for i in range(0, int(Nt)-1):
+                    for ll in range(1, k+1):
+                        rho1 = (dt / ll) * (-1.0j * commutator(H, rho1) + apply_KL(K, L[i,:,:,:], rho1))
+                        rho2 = rho2 + rho1
+                        
+                    rho1 = rho2    
+                    out[i,:,:] = rho2
+                
+                out = numpy.einsum('ij,tjk,kl->til', S, out, iS, dtype=numpy.complex128, optimize=True)
+
+                return out
+                
+            RT = self.RelaxationTensor
+
+            hD, SS = numpy.linalg.eigh(HH)
+            iS = numpy.linalg.inv(SS) 
+            
+            RT.transform(SS, iS)
+            Km = RT.Km
+            Lm = numpy.transpose(RT.Lm, (3,2,0,1))
+
+            pr.data[1:] = _propagate(H=HH, K=Km, L=Lm, rho=rhoi.data, S=SS, iS=iS) 
+
+            RT.transform(iS, SS)  # this was not needed in my prior implementation ...
+
+        if self.secular_relaxation:
+            _propagate_secular()
+        else:
+            # _propagate_nonsecular()
+            _propagate_nonsecular_optimized()
 
         if self.Hamiltonian.has_rwa:
             pr.is_in_rwa = True
-
             
         return pr
         
@@ -1761,4 +1978,11 @@ def _TTI(rhoY, RR, IR, ll, dt, rho1, L=4):
 
     """
     rhoY += (dt/ll)*(numpy.tensordot(RR,rho1)) + dt*IR/numpy.real(L)
+
+@jit(nopython=True, fastmath=True)
+def commutator(A, B):
+    AA = A.astype(numpy.complex128)
+    BB = B.astype(numpy.complex128)
+    
+    return numpy.dot(AA,BB) - numpy.dot(BB,AA)
 
