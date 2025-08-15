@@ -25,6 +25,8 @@ from ..qm.hilbertspace.operators import ReducedDensityMatrix
 from .abs2 import AbsSpectrum
 from .. import COMPLEX, REAL
 
+from joblib import Parallel, delayed
+
 
 class AbsSpectrumCalculator(EnergyUnitsManaged):
     """Linear absorption spectrum 
@@ -176,7 +178,7 @@ class AbsSpectrumCalculator(EnergyUnitsManaged):
         self.bootstrapped = True
 
     @prevent_basis_context                        
-    def calculate(self, raw=False, from_dynamics=False, alt=False):
+    def calculate(self, raw=False, from_dynamics=False, alt=False, parallel=True):
         """ Calculates the absorption spectrum 
         
         
@@ -194,7 +196,8 @@ class AbsSpectrumCalculator(EnergyUnitsManaged):
                     
                     # alt = True is for testing only
                     spect = self._calculate_abs_from_dynamics(raw=raw,
-                                                              alt=alt)
+                                                              alt=alt,
+                                                              parallel=parallel)
                         
                 elif isinstance(self.system, Aggregate):
                     spect = self._calculate_aggregate( 
@@ -341,7 +344,7 @@ class AbsSpectrumCalculator(EnergyUnitsManaged):
         return spect
 
     
-    def _calculate_abs_from_dynamics(self, raw=False, alt=False):
+    def _calculate_abs_from_dynamics(self, raw=False, alt=False, parallel=True):
         """Calculates the absorption spectrum of a molecule from its dynamics
         
         """
@@ -387,7 +390,7 @@ class AbsSpectrumCalculator(EnergyUnitsManaged):
             
         else:
             
-            at = _spect_from_dyn_single(time, HH, DD, prop, rhoeq, secular)
+            at = _spect_from_dyn_single(time, HH, DD, prop, rhoeq, secular, parallel=parallel)
 
 
         #
@@ -582,7 +585,7 @@ def _spect_from_dyn(time, HH, DD, prop, rhoeq, secular=False):
         return at
 
 
-def _spect_from_dyn_single(time, HH, DD, prop, rhoeq, secular=False):
+def _spect_from_dyn_single(time, HH, DD, prop, rhoeq, secular=False, parallel=True):
     """Calculation of the first order signal field.
     
     Calculation in a single propagation
@@ -609,38 +612,55 @@ def _spect_from_dyn_single(time, HH, DD, prop, rhoeq, secular=False):
 
     """    
     rhoi = ReducedDensityMatrix(dim=HH.dim)
-    #
-    # Time dependent data
-    #
-    at = numpy.zeros(time.length, dtype=COMPLEX)
-        
-    #deff = numpy.sqrt(numpy.einsum("ijn,ijn->ij", DD.data,DD.data,
-    #                               dtype=REAL))
- 
+    
     _show = False
     if _show:
         import matplotlib.pyplot as plt
 
-    for kk in range(3):
-        deff = DD.data[:,:,kk]
-        # excitation by an effective dipole
-        rhoi.data = (numpy.dot(deff,rhoeq.data)+numpy.dot(rhoeq.data,deff))/3.0
-
-        rhot = prop.propagate(rhoi)
-
+    if not parallel:
+        #
+        # Time dependent data
+        #
+        at = numpy.zeros(time.length, dtype=COMPLEX)
         
-        if _show:
+        for kk in range(3):
+            deff = DD.data[:,:,kk]
+            # excitation by an effective dipole
+            rhoi.data = (numpy.dot(deff,rhoeq.data)+numpy.dot(rhoeq.data,deff))/3.0
+
+            rhot = prop.propagate(rhoi)
+
+            
+            if _show:
+                for ig in range(HH.rwa_indices[1]):
+                    print("ig=", ig)
+                    for ll in range(rhot.data.shape[2]):
+                        plt.plot(time.data, rhot.data[:,ig,ll])
+                    plt.title("kk="+str(kk))
+                    plt.show()
+
+
             for ig in range(HH.rwa_indices[1]):
-                print("ig=", ig)
-                for ll in range(rhot.data.shape[2]):
-                    plt.plot(time.data, rhot.data[:,ig,ll])
-                plt.title("kk="+str(kk))
-                plt.show()
+                at += numpy.einsum("j,kj->k",deff[ig,:],rhot.data[:,:,ig])
 
+    else:
+        print("Using parallel implementation of the spectrum calculation from dynamics using 3 workers")
 
-        for ig in range(HH.rwa_indices[1]):
-            at += numpy.einsum("j,kj->k",deff[ig,:],rhot.data[:,:,ig])
+        def evaluate_dir(kk):
+            atkk = numpy.zeros(time.length, dtype=COMPLEX)
+            deff = DD.data[:,:,kk]
+            # excitation by an effective dipole
+            rhoi.data = (numpy.dot(deff,rhoeq.data)+numpy.dot(rhoeq.data,deff))/3.0
+
+            rhot = prop.propagate(rhoi)
+
+            for ig in range(HH.rwa_indices[1]):
+                atkk += numpy.einsum("j,kj->k",deff[ig,:],rhot.data[:,:,ig])
+
+            return atkk
         
+        results = Parallel(n_jobs=3)(delayed(evaluate_dir)(kk) for kk in range(3))
+        at = numpy.sum(results, axis=0)
 
     return at
 
