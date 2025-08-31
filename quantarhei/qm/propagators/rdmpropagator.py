@@ -1296,9 +1296,11 @@ class ReducedDensityMatrixPropagator(MatrixData, Saveable):
             hD, SS = numpy.linalg.eigh(HH)
             iS = numpy.linalg.inv(SS) 
             
-            RT.transform(SS, iS)
-            Km = RT.Km
-            Lm = numpy.transpose(RT.Lm, (3,2,0,1))
+            #RT.transform(SS, iS)   # causes issues in parallel runs
+            #Km = RT.Km
+            #Lm = numpy.transpose(RT.Lm, (3,2,0,1))
+            Lm = numpy.einsum('ij,jkmt,ks->tmis', iS, RT.Lm, SS)
+            Km = numpy.einsum('ij,mjk,kl->mil', iS, RT.Km, SS)
 
             pr.data[1:] = _propagate(H=HH, K=Km, L=Lm, rho=rhoi.data, S=SS, iS=iS) 
 
