@@ -651,8 +651,9 @@ def _spect_from_dyn_single(time, HH, DD, prop, rhoeq, secular=False, parallel=Tr
             deff = DD.data[:,:,kk]
             # excitation by an effective dipole
             rhoi.data = (numpy.dot(deff,rhoeq.data)+numpy.dot(rhoeq.data,deff))/3.0
+            iprop = prop.deepcopy()
 
-            rhot = prop.propagate(rhoi)
+            rhot = iprop.propagate(rhoi)
 
             for ig in range(HH.rwa_indices[1]):
                 atkk += numpy.einsum("j,kj->k",deff[ig,:],rhot.data[:,:,ig])
